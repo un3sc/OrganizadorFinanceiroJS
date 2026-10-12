@@ -1,10 +1,27 @@
 // --- Imports ---
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, onSnapshot, query, doc, deleteDoc, writeBatch, updateDoc, getDocs, where } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
 import { firebaseConfig } from './firebase-config.js';
 
-let app, auth, db, userId;
+const ACCENT = '#d80816'; 
+
+function applyChartTheme(theme) {
+    const dark = theme === 'dark';
+    Chart.defaults.color = dark ? '#94a3b8' : '#6b7280';
+    Chart.defaults.borderColor = dark ? 'rgba(148, 163, 184, 0.15)' : 'rgba(0, 0, 0, 0.08)';
+    Chart.defaults.elements.arc.borderColor = dark ? '#1e293b' : '#ffffff';
+}
+
+function setTheme(theme) {
+    document.documentElement.dataset.theme = theme;
+    try { localStorage.setItem('tema', theme); } catch (e) {}
+    document.getElementById('theme-toggle').textContent = theme === 'dark' ? '☀️' : '🌙';
+    applyChartTheme(theme);
+    updateAllCharts(); // redesenha os gráficos com as cores do novo tema
+}
+
+let app, db;
+const userId = 'pessoal'
 let transactions = [];
 let recurringExpenses = [];
 let accounts = [];
@@ -40,44 +57,17 @@ function showConfirmation(message, onConfirm) {
     openModal('confirm-modal');
 }
 
-// --- Lógica de UI (Telas) ---
-function showLoginScreen() {
-    document.getElementById('main-app').classList.add('hidden');
-    document.getElementById('login-screen').classList.remove('hidden');
-}
-
-function showMainApp(user) {
-    document.getElementById('login-screen').classList.add('hidden');
-    document.getElementById('main-app').classList.remove('hidden');
-    document.getElementById('user-email').textContent = user.email;
-}
-
 // --- Funções de Inicialização e Autenticação ---
 function initializeFinanceApp() {
     app = initializeApp(firebaseConfig);
-    auth = getAuth(app);
     db = getFirestore(app);
-    
+
     setupEventListeners();
-
-    onAuthStateChanged(auth, user => {
-        unsubscribeListeners.forEach(unsub => unsub());
-        unsubscribeListeners = [];
-        isUIReady = false;
-
-        if (user) {
-            userId = user.uid;
-            showMainApp(user);
-            setupRealtimeListeners();
-        } else {
-            showLoginScreen();
-            transactions = [];
-            accounts = [];
-            recurringExpenses = [];
-            document.getElementById('content').classList.add('hidden');
-            document.getElementById('loading-spinner').classList.remove('hidden');
-        }
+    setTheme(document.documentElement.dataset.theme || 'dark');
+    document.getElementById('theme-toggle').addEventListener('click', () => {
+    setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
     });
+    setupRealtimeListeners();
 }
 
 function setupRealtimeListeners() {
@@ -653,54 +643,7 @@ function setupAccountActionModal(id, action) {
 }
 
 // --- Event Listeners ---
-function setupEventListeners() {
-    // UI Toggles
-    document.getElementById('show-signup').addEventListener('click', (e) => { e.preventDefault(); document.getElementById('login-view').classList.add('hidden'); document.getElementById('signup-view').classList.remove('hidden'); });
-    document.getElementById('show-login').addEventListener('click', (e) => { e.preventDefault(); document.getElementById('signup-view').classList.add('hidden'); document.getElementById('login-view').classList.remove('hidden'); });
-    
-    // Auth Forms
-    const authErrorMsg = document.getElementById('auth-error-message');
-    document.getElementById('login-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        try {
-            await signInWithEmailAndPassword(auth, e.target['login-email'].value, e.target['login-password'].value);
-            authErrorMsg.textContent = '';
-        } catch (error) {
-            authErrorMsg.textContent = 'Email ou palavra-passe inválidos.';
-            console.error("Login Error:", error);
-        }
-    });
-    document.getElementById('signup-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        try {
-            await createUserWithEmailAndPassword(auth, e.target['signup-email'].value, e.target['signup-password'].value);
-            authErrorMsg.textContent = '';
-        } catch (error) {
-            authErrorMsg.textContent = 'Erro ao criar conta. Verifique o email ou a palavra-passe.';
-            console.error("Signup Error:", error);
-        }
-    });
-    document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
-    
-    document.getElementById('forgot-password-link').addEventListener('click', async (e) => {
-        e.preventDefault();
-        const email = document.getElementById('login-email').value;
-        if (!email) {
-            authErrorMsg.textContent = 'Por favor, preencha o campo de email primeiro.';
-            return;
-        }
-        try {
-            await sendPasswordResetEmail(auth, email);
-            authErrorMsg.classList.remove('text-red-600');
-            authErrorMsg.classList.add('text-green-600');
-            authErrorMsg.textContent = 'Email de recuperação enviado! Verifique a sua caixa de entrada.';
-        } catch (error) {
-            authErrorMsg.classList.remove('text-green-600');
-            authErrorMsg.classList.add('text-red-600');
-            authErrorMsg.textContent = 'Erro ao enviar o email. Verifique se o email está correto.';
-            console.error("Password Reset Error:", error);
-        }
-    });
+function setupEventListeners() {  
 
     // Modal Buttons
     document.querySelectorAll('.close-modal-btn').forEach(btn => btn.onclick = closeModal);
